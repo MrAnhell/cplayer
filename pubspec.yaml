@@ -1,6 +1,6 @@
 name: cplayer
 description: A player for ApolloTV, written in Dart for the Flutter framework.
-version: 0.0.1
+version: 0.0.2
 author: NBTX
 homepage: https://apollotv.xyz/
 

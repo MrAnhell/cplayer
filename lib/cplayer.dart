@@ -36,8 +36,13 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
   VideoPlayerController _controller;
   bool _isPlaying = false;
   bool _isControlsVisible = true;
-
+  bool _isLoading = true;
+  int _aspectRatio = 0;
   int _total = 0;
+
+  Function _getCenterPanel = (){
+    return Container();
+  };
 
   @override
   void initState(){
@@ -57,9 +62,7 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
     _controller = VideoPlayerController.network(
         widget.url
     )..addListener(() {
-      setState(() {
-
-      });
+      setState(() {});
 
       final bool isPlaying = _controller.value.isPlaying;
       if(isPlaying != _isPlaying){
@@ -72,10 +75,17 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
       // initialized, even before the play button has been pressed.
       setState((){});
 
+      // Hide loading bar
+      _isLoading = false;
+
       // Set up controller, and autoplay.
       _controller.setLooping(false);
       _controller.setVolume(1.0);
       _controller.play();
+
+      Timer(Duration(seconds: 5), (){
+        _isControlsVisible = false;
+      });
 
       _total = _controller.value.duration.inMilliseconds;
     });
@@ -101,7 +111,7 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-        title: 'SocksPlayer',
+        title: 'CPlayer',
         theme: new ThemeData(
             brightness: Brightness.dark,
             primaryColor: widget.primaryColor,
@@ -113,21 +123,28 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
         // Remove debug banner - because it's annoying.
         debugShowCheckedModeBanner: false,
 
-
         // Layout
         home: Scaffold(
+          backgroundColor: Colors.black,
             body: Stack(
                 alignment: Alignment.bottomCenter,
                 children: <Widget>[
-                  Center(
-                      child: _controller.value.initialized
-                          ? InkWell(
-                          child: AspectRatio(
-                              aspectRatio: _controller.value.aspectRatio,
-                              child: VideoPlayer(_controller)
-                          )
-                      )
-                          : Container()
+                  GestureDetector(
+                    onTap: (){
+                      _isControlsVisible = !_isControlsVisible;
+                    },
+                    child: Center(
+                        child: _controller.value.initialized
+                            ? InkWell(
+                            child: AspectRatio(
+                                aspectRatio: buildAspectRatio(_aspectRatio, context, _controller),
+                                child: VideoPlayer(_controller)
+                            )
+                        )
+                            : Container(child: CircularProgressIndicator(
+                          valueColor: new AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor),
+                        ))
+                    )
                   ),
 
                   new AnimatedOpacity(
@@ -193,11 +210,92 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
                                       )
                                   ),
 
+                                  new Padding(
+                                      padding: EdgeInsets.symmetric(horizontal: 5.0),
+                                      child: new InkWell(
+                                          onTap: (){
+                                            if(!_controller.value.isPlaying) {
+                                              return;
+                                            }
 
+                                            if(_aspectRatio < RATIOS.length - 1) {
+                                              _aspectRatio++;
+                                            }else{
+                                              _aspectRatio = 0;
+                                            }
+
+                                            /* BEGIN: show center panel */
+                                            _getCenterPanel = (){
+                                              return Container(
+                                                  child: new Padding(
+                                                      padding: EdgeInsets.symmetric(vertical: 10.0, horizontal: 15.0),
+                                                      child: Column(
+                                                        mainAxisSize: MainAxisSize.min,
+
+                                                        children: <Widget>[
+                                                          Icon(
+                                                            Icons.aspect_ratio,
+                                                            size: 48,
+                                                          ),
+
+                                                          Padding(
+                                                              padding: EdgeInsets.only(top: 10),
+                                                              child: Text(
+                                                                  "Aspect Ratio",
+                                                                  style: TextStyle(
+                                                                      fontFamily: "GlacialIndifference",
+                                                                      fontSize: 20
+                                                                  )
+                                                              )
+                                                          ),
+
+                                                          Padding(
+                                                              padding: EdgeInsets.only(top: 5),
+                                                              child: Text(RATIOS[_aspectRatio])
+                                                          )
+                                                        ],
+                                                      )
+                                                  ),
+
+                                                  decoration: BoxDecoration(
+                                                      color: const Color(0xAF000000),
+                                                      borderRadius: BorderRadius.circular(5.0)
+                                                  )
+                                              );
+                                            };
+
+                                            new Timer(Duration(seconds: 5), (){
+                                              _getCenterPanel = (){
+                                                return Container();
+                                              };
+                                            });
+                                            /* END: show center panel */
+                                          },
+                                          child: new Icon(
+                                              Icons.aspect_ratio,
+                                              size: 24.0,
+                                              color: Theme.of(context).textTheme.button.color
+                                          )
+                                      )
+                                  )
                                 ],
                               )
                           )
                       )
+                  ),
+
+                  new AnimatedOpacity(
+                    opacity: _controller.value.isBuffering ? 1.0 : 0.0,
+                    duration: new Duration(milliseconds: 200),
+                    child: Center(
+                        child: Container(child: CircularProgressIndicator(
+                            valueColor: new AlwaysStoppedAnimation<Color>(Theme.of(context).primaryColor)
+                        ))
+                    )
+                  ),
+
+                  Center(
+                    child: (_getCenterPanel())
                   )
                 ]
             )
@@ -209,17 +307,15 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
   /// Formats a timestamp in milliseconds.
   ///
   String formatTimestamp(int millis){
-    double milliseconds = millis.toDouble();
-    int seconds = ((milliseconds / 1000) % 60).round();
-    int minutes = ((milliseconds / (1000*60)) % 60).round();
-    int hours   = ((milliseconds / (1000*60*60)) % 24).round();
+    int seconds = ((millis ~/ 1000)%60);
+    int minutes = ((millis ~/ (1000*60))%60);
+    int hours = ((millis ~/ (1000*60*60))%24);
 
-    String output =
-        (hours > 0 ? hours.toString().padLeft(2, '0') + ":" : "") +
-            minutes.toString().padLeft(2, '0') + ":" +
-            seconds.toString().padLeft(2, '0');
+    String hourString = (hours < 10) ? "0" + hours.toString() : hours.toString();
+    String minutesString = (minutes < 10) ? "0" + minutes.toString() : minutes.toString();
+    String secondsString = (seconds < 10) ? "0" + seconds.toString() : seconds.toString();
 
-    return output;
+    return hourString + ":" + minutesString + ":" + secondsString;
   }
 
   ///
@@ -230,6 +326,41 @@ class ApolloTVPlayerState extends State<ApolloTVPlayer> {
       await _platform.invokeMethod('beginCasting');
     } on PlatformException catch (e) {
       print("Failed to begin casting on platform: ${e.message}");
+    }
+  }
+
+  static const Map<int, String> RATIOS = {
+    0: "Default",
+    1: "Fit to Screen",
+    2: "3:2",
+    3: "16:9",
+    4: "18:9",
+    5: "21:9"
+  };
+
+  ///
+  /// Returns a generated aspect ratio.
+  /// Choices: fit, 3-2, 16-9, default.
+  ///
+  double buildAspectRatio(int ratio, BuildContext context, VideoPlayerController controller){
+    switch(ratio) {
+      case 1: /* FIT */
+        return MediaQuery.of(context).size.width / MediaQuery.of(context).size.height;
+
+      case 2: /* 3:2 */
+        return 3/2;
+
+      case 3: /* 16:9 */
+        return 16/9;
+
+      case 4: /* 18:9 */
+        return 18/9;
+
+      case 5: /* 21/9 */
+        return 21/9;
+
+      default:
+        return controller.value.aspectRatio;
     }
   }
 
