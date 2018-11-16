@@ -9,14 +9,14 @@ import 'package:screen/screen.dart';
 import 'package:video_player/video_player.dart';
 
 
-class ApolloTVPlayer extends StatefulWidget {
+class CPlayer extends StatefulWidget {
 
   final String url;
   final Color primaryColor;
   final Color accentColor;
   final Color highlightColor;
 
-  ApolloTVPlayer({
+  CPlayer({
     Key key,
     @required this.url,
     this.primaryColor,
@@ -25,11 +25,11 @@ class ApolloTVPlayer extends StatefulWidget {
   }) : super(key: key);
 
   @override
-  State<StatefulWidget> createState() => ApolloTVPlayerState();
+  State<StatefulWidget> createState() => CPlayerState();
 
 }
 
-class ApolloTVPlayerState extends State<ApolloTVPlayer> {
+class CPlayerState extends State<CPlayer> {
 
   static const _platform = const MethodChannel('xyz.apollotv/casting');
 
